@@ -2,59 +2,89 @@
 <html data-swagger-options="<%= GrapeSwaggerRails.options.marshal_dump.to_json %>">
 <head>
   <title><%= GrapeSwaggerRails.options.app_name || 'Swagger UI' %></title>
+  <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link href='//fonts.googleapis.com/css?family=Droid+Sans:400,700' rel='stylesheet' type='text/css'/>
   <%= stylesheet_link_tag 'grape_swagger_rails/application.css' %>
   <%= javascript_include_tag 'grape_swagger_rails/application.js' %>
   <script type="text/javascript">
 	$(function () {
 	  var options = $("html").data('swagger-options');
 
-    window.swaggerUi = new SwaggerUi({
-      url: options.app_url + options.url,
-      dom_id: "swagger-ui-container",
-      supportHeaderParams: true,
-      supportedSubmitMethods: ['get', 'post', 'put', 'delete', 'patch'],
-      onComplete: function(swaggerApi, swaggerUi){
-        if('console' in window) {
-          console.log("Loaded SwaggerUI")
-          console.log(swaggerApi);
-          console.log(swaggerUi);
-        }
-        $('pre code').each(function(i, e) {hljs.highlightBlock(e)});
-      },
-      onFailure: function(data) {
-        if('console' in window) {
-          console.log("Unable to Load SwaggerUI");
-          console.log(data);
-        }
-      },
-      docExpansion: options.doc_expansion,
-      apisSorter: "alpha"
-    });
-
-    $('#input_apiKey').change(function() {
-      var key = $('#input_apiKey')[0].value;
-
-      if(key && key.trim() != "") {
-        if (options.api_auth == 'basic') {
-          key = "Basic " + Base64.encode(key);
-        } else if (options.api_auth == 'bearer') {
-          key = "Bearer " + key
-        }
-        window.swaggerUi.api.clientAuthorizations.add("key", new SwaggerClient.ApiKeyAuthorization(options.api_key_name, key, options.api_key_type));
-      } else {
-        window.swaggerUi.api.clientAuthorizations.add("key", null);
-      }
-    });
-
-    window.swaggerUi.load();
-
     <% GrapeSwaggerRails.options.headers.each_with_index do |(key, value), index| %>
       <%=raw "window.swaggerUi.api.clientAuthorizations.add('header_#{index}', new SwaggerClient.ApiKeyAuthorization('#{CGI.escapeHTML(key)}', '#{CGI.escapeHTML(value)}', 'header'));" %>
     <% end %>
+
+    // Pre load translate...
+    if(window.SwaggerTranslator) {
+      window.SwaggerTranslator.translate();
+    }
+    window.swaggerUi = new SwaggerUi({
+      url: options.app_url + options.url,
+      dom_id: "swagger-ui-container",
+      supportedSubmitMethods: ['get', 'post', 'put', 'delete', 'patch'],
+      onComplete: function(swaggerApi, swaggerUi){
+        if(typeof initOAuth == "function") {
+          initOAuth({
+            clientId: "your-client-id",
+            clientSecret: "your-client-secret-if-required",
+            realm: "your-realms",
+            appName: "your-app-name", 
+            scopeSeparator: ",",
+            additionalQueryStringParams: {}
+          });
+        }
+
+        if(window.SwaggerTranslator) {
+          window.SwaggerTranslator.translate();
+        }
+
+        $('pre code').each(function(i, e) {
+          hljs.highlightBlock(e)
+        });
+
+        addApiKeyAuthorization();
+      },
+      onFailure: function(data) {
+        log("Unable to Load SwaggerUI");
+      },
+      docExpansion: options.doc_expansion,
+      jsonEditor: false,
+      apisSorter: "alpha",
+      defaultModelRendering: 'schema',
+      showRequestHeaders: false
+    });
+
+    function addApiKeyAuthorization(){
+      var key = encodeURIComponent($('#input_apiKey')[0].value);
+      if(key && key.trim() != "") {
+          apiKeyAuth = new SwaggerClient.ApiKeyAuthorization("Authorization", "Bearer "+key, "header");
+          window.swaggerUi.api.clientAuthorizations.add("oauth2", apiKeyAuth);
+          log("added key " + key);
+      }
+    }
+
+    $('#input_apiKey').change(addApiKeyAuthorization);
+
+    window.swaggerUi.load();
+
+    // if you have an apiKey you would like to pre-populate on the page for demonstration purposes...
+    var apiKey = window.location.search.match(/api_key=([^&]+)/);
+    if (apiKey && apiKey.length > 1) {
+      key = decodeURIComponent(apiKey[1]);
+      $('#input_apiKey').val(key);
+      addApiKeyAuthorization()
+    }
+
+    function log() {
+      if ('console' in window) {
+        console.log.apply(console, arguments);
+      }
+    }
+
   });
   </script>
+  
+  
 </head>
 
 <body class="swagger-section">
