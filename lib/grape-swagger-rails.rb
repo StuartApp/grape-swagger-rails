@@ -18,6 +18,7 @@ module GrapeSwaggerRails
     url:                  '/swagger_doc',
     app_name:             'Swagger',
     app_url:              'http://swagger.wordnik.com',
+    validator_url:        true,
 
     headers:              {},
 
